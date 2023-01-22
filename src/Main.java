@@ -7,7 +7,8 @@ public class Main {
 
 	static int n;
 	static int t;
-	static ArrayList<Position> xtrees = new ArrayList<>();
+	
+	static ArrayList<Interval> intervals = new ArrayList<>();
 	static ArrayList<Position> ytrees = new ArrayList<>();
 
 	public static void main(String[] args) {
@@ -20,84 +21,101 @@ public class Main {
 			int x = sc.nextInt();
 			int y = sc.nextInt();
 			Position tree = new Position(x-1,y-1);
-			xtrees.add(tree);
 			ytrees.add(tree);
 		}
 		
-		Collections.sort(xtrees, (a,b)->a.x-b.x);
+		ytrees.add(new Position(-1,-1));
+		ytrees.add(new Position(n, n));
+		
 		Collections.sort(ytrees, (a,b)->a.y-b.y);
 		
-		Rect rect = new Rect(0,0,n,n);
-		rect = getMaxSquareSize(rect, xtrees, ytrees);
-		System.out.println(rect.squareSize());
+		for (int i=0;i<ytrees.size();i++) {
+			Position tree1 = ytrees.get(i);
+			for (int j=i+1;j<ytrees.size();j++) {
+				Position tree2 = ytrees.get(j);
+				if (tree1.x != tree2.x) {
+					Interval interval = new Interval(tree1,tree2);
+					if (interval.distance>0)
+						intervals.add(interval);
+				}
+			}
+		}
+		Collections.sort(intervals, (a, b)->b.distance - a.distance);
+
+		
+		
+		int maxSquareSize = 0;
+		for (Interval interval:intervals) {
+			int squareSize = getSquareSizeFromXInterval(interval);
+			if (maxSquareSize<squareSize)
+				maxSquareSize = squareSize;
+		}
+		
+		
+		System.out.println(maxSquareSize);
 	}
 	
-	private static Rect getMaxSquareSize(Rect rect, ArrayList<Position> xt, ArrayList<Position> yt) {
+	private static int getSquareSizeFromXInterval(Interval interval) {
 		// TODO Auto-generated method stub
-		if (xt.isEmpty()) {
-			return rect;
+		Position previousTree=null;
+		int maxDistance = 0;
+		int distance = 0;
+		for (Position tree:ytrees) {
+			if (interval.containsPos(tree)) {
+				
+				if (previousTree != null) {
+					distance = tree.y - previousTree.y-1;
+				} else { // handle the left most spance
+					distance = tree.y-interval.tree1.y-1;
+				}
+				if (maxDistance < distance)
+					maxDistance = distance;
+				previousTree = tree;
+			}
+			
 		}
-		RemoveReturnValue rv = removeATree(rect, xt, yt);
-		xt.remove(rv.tree);
-		yt.remove(rv.tree);
-		return getMaxSquareSize(rv.rect, xt, yt);
+		// handle the right most space
+		if (previousTree == null) {
+			distance = ytrees.size() - ytrees.get(0).y;
+		} else {
+			distance = ytrees.size() -  previousTree.y -1;
+		}
+		if (maxDistance < distance)
+			maxDistance = distance;
+		
+		if (interval.distance < maxDistance) {
+			return interval.distance;
+		}
+		return maxDistance;
+		
 	}
 
-	private static RemoveReturnValue removeATree(Rect rect, ArrayList<Position> xt, ArrayList<Position> yt) {
+	
+}
+
+class Interval {
+	Position tree1;
+	Position tree2;
+	int distance;
+	
+	public Interval(Position tree1, Position tree2) {
+		if (tree1.x < tree2.x) {
+			this.tree1 = tree1;
+			this.tree2 = tree2;
+			this.distance = tree2.x-tree1.x-1;
+		} else {
+			this.tree1 = tree2;
+			this.tree2 = tree1;
+			this.distance = tree1.x - tree2.x-1;
+		}
+	}
+
+	public boolean containsPos(Position pos) {
 		// TODO Auto-generated method stub
-		Position sideTree = null;
-		Rect rtRect = null;
-		int minDistance = Integer.MAX_VALUE;
-		Position tree = xt.get(0);
-		int distance = tree.x-rect.x;
-		if (minDistance>distance) {
-			minDistance = distance;
-			sideTree = tree;
-			rtRect = new Rect(tree.x+1, rect.y, rect.xLen-distance-1, rect.yLen);
-		} 
-		
-		tree = xt.get(xt.size()-1);
-		distance = rect.x+rect.xLen-1-tree.x;
-		if (minDistance>distance) {
-			minDistance = distance;
-			sideTree = tree;
-			rtRect = new Rect(rect.x, rect.y, rect.xLen-distance-1, rect.yLen);
-		} 
-		
-		tree = yt.get(0);
-		distance = tree.y-rect.y;
-		if (minDistance>distance) {
-			minDistance = distance;
-			sideTree = tree;
-			rtRect = new Rect(rect.x, tree.y+1, rect.xLen, rect.yLen-distance-1);
-		} else if (minDistance == distance && rect.yLen>rect.xLen) {
-			sideTree = tree;
-			rtRect = new Rect(rect.x, tree.y+1, rect.xLen, rect.yLen-distance-1);
-		}
-		
-		tree = yt.get(yt.size()-1);
-		distance = rect.y+rect.yLen-1-tree.y;
-		if (minDistance>distance) {
-			minDistance = distance;
-			sideTree = tree;
-			rtRect = new Rect(rect.x, rect.y, rect.xLen, rect.yLen-distance-1);
-		} else if (minDistance == distance && rect.yLen>rect.xLen) {
-			sideTree = tree;
-			rtRect = new Rect(rect.x, rect.y, rect.xLen, rect.yLen-distance-1);
-		}
-		
-		RemoveReturnValue rt = new RemoveReturnValue();
-		rt.rect = rtRect;
-		rt.tree = sideTree;
-		
-		return rt;
+		return this.tree1.x < pos.x && this.tree2.x > pos.x;
 	}
 }
 
-class RemoveReturnValue {
-	Position tree;
-	Rect rect;
-}
 
 class Position {
 	int x, y;
@@ -107,21 +125,3 @@ class Position {
 	}
 }
 
-class Rect {
-	int x;
-	int y;
-	int xLen;
-	int yLen;
-	
-	public Rect(int x, int y, int xLen, int yLen) {
-		this.x = x;
-		this.y = y;
-		this.xLen = xLen;
-		this.yLen = yLen;
-	}
-
-	public int squareSize() {
-		// TODO Auto-generated method stub
-		return this.xLen<this.yLen?this.xLen:this.yLen;
-	}
-}
